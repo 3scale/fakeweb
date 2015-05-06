@@ -47,7 +47,9 @@ module Net  #:nodoc: all
       elsif FakeWeb.allow_net_connect?(uri)
         @started = false
         @connect_without_fakeweb = true
+
         start do
+          connect_without_fakeweb unless @socket
           request_without_fakeweb(request, body, &block)
         end
       else

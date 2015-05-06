@@ -3,7 +3,7 @@
 Gem::Specification.new do |s|
   s.name              = "fakeweb"
   s.rubyforge_project = "fakeweb"
-  s.version           = "1.3.0"
+  s.version           = "1.3.0.3scale-2"
   s.summary           = "A tool for faking responses to HTTP requests"
 
   s.homepage          = "https://github.com/chrisk/fakeweb"
