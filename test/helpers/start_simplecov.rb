@@ -24,7 +24,7 @@ module FakeWebTestHelper
         formatters << Console
         formatters << HTMLFormatter if html_report_requested?
       end
-      MultiFormatter[*formatters]
+      MultiFormatter.new(formatters)
     end
 
     def this_process_responsible_for_coverage_reporting?
@@ -44,7 +44,10 @@ module FakeWebTestHelper
     end
 
     def coverage_supported_by_this_ruby?
-      RUBY_VERSION >= "1.9.0" && RUBY_ENGINE != "rbx"
+      return false if defined?(RUBY_ENGINE) && RUBY_ENGINE == "rbx"
+      # Ruby's built-in Coverage first shipped with Ruby 1.9.0, but SimpleCov
+      # doesn't work very well on pre-1.9.3.
+      RUBY_VERSION >= "1.9.3"
     end
 
     extend self

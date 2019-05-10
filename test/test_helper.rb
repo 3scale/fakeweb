@@ -78,21 +78,12 @@ module FakeWebTestHelper
     ruby_opts = []
     ruby_opts << "-w" if defined?($-w) && $-w
 
-    # When you start JRuby with --debug, it does this:
-    #
-    #   # src/org/jruby/util/cli/ArgumentProcessor.java:371
-    #   RubyInstanceConfig.FULL_TRACE_ENABLED = true;
-    #   config.setCompileMode(RubyInstanceConfig.CompileMode.OFF);
-    #
-    # This checks the same settings from Rubyland. See our Rakefile for
-    # some background on --debug.
-    # TODO: is there a good way to retrieve the command-line options
-    # used to start JRuby? --debug doesn't seem to have an analogue of
-    # $-w, $-d, etc.
+    # Propagate JRuby options needed to measure code coverage. See JRuby's
+    # util/cli/ArgumentProcessor.java for details.
     if RUBY_PLATFORM == "java" &&
        JRuby.runtime.instance_config.class.FULL_TRACE_ENABLED &&
        JRuby.runtime.instance_config.compile_mode.to_s == "OFF"
-      ruby_opts << "--debug"
+      ruby_opts << "--debug" << "--dev"
     end
 
     ruby_opts
@@ -101,6 +92,7 @@ module FakeWebTestHelper
   def remove_warnings_from_gems_and_stdlib(string)
     code_paths = [RbConfig::CONFIG["libdir"],
                   File.expand_path(File.join(File.dirname(__FILE__), "vendor")),
+                  "./test/vendor",
                   Gem.path].flatten
     splitter = string.respond_to?(:lines) ? :lines : :to_a
     string.send(splitter).reject { |line|
@@ -119,7 +111,19 @@ module FakeWebTestHelper
       OpenSSL::SSL::SSLSocket.expects(:===).with(socket).returns(true).at_least_once
       OpenSSL::SSL::SSLSocket.expects(:new).with(socket, instance_of(OpenSSL::SSL::SSLContext)).returns(socket).at_least_once
       socket.stubs(:sync_close=).returns(true)
-      socket.expects(:connect).with().at_least_once
+
+      # MRI's Net::HTTP switched from stdlib's timeout.rb to an internal
+      # implementation using io/wait and connect_nonblock in Ruby 2.3.
+      # See https://github.com/ruby/ruby/commit/bab5bf0c79ba
+      #
+      # Although recent versions of Rubinius report themselves as Ruby 2.3,
+      # they do not yet incorporate this change.
+      if RUBY_VERSION >= "2.3.0" && RUBY_ENGINE != "rbx"
+        socket.expects(:connect_nonblock).with(any_parameters).at_least_once
+      else
+        socket.expects(:connect).with().at_least_once
+      end
+
       if RUBY_VERSION >= "2.0.0" && RUBY_PLATFORM != "java"
         socket.expects(:session).with().at_least_once
       end
