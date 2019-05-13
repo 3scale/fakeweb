@@ -2,7 +2,7 @@ require 'rubygems'
 require 'rake'
 
 task :print_header do
-  version_string = `rvm current`.strip
+  version_string = `command -v rvm >/dev/null && rvm current`.strip
   version_string = RUBY_DESCRIPTION if !$?.success?
   puts "\n# Starting tests using \e[1m#{version_string}\e[0m\n\n"
 end
@@ -28,21 +28,15 @@ Rake::TestTask.new(:test) do |test|
   test.verbose = false
   test.warning = true
 
-  # This quells a JRuby warning from SimpleCov: "tracing (e.g.
-  # set_trace_func) will not capture all events without --debug flag".
-  # This flag changes two internal options: it enables the runtime's
-  # "full-trace" mode, then sets its "compile mode" to OFF so that
-  # all code runs through the interpreter. (See test_helper.rb for
-  # the Java and Ruby code exposing these.)
-  #
-  # Note that --debug is unrelated to lots of similar-sounding flags
-  # common to many implementations (-d, -D, --debugger, etc.) and so we
-  # don't need to set any of those. For details, see JRuby's
+  # To measure code coverage under JRuby, we need to pass --debug (enabling the
+  # runtime's "full-trace" mode) and --dev (setting its "compile mode" to OFF so
+  # all code runs through the interpreter). For details, see JRuby's
   # util/cli/ArgumentProcessor.java.
-  test.ruby_opts << "--debug" if RUBY_PLATFORM == "java"
+  test.ruby_opts << "--debug" << "--dev" if RUBY_PLATFORM == "java"
 end
 Rake::Task["test"].enhance ["test:preflight"]
-Rake::Task["test"].clear_comments.add_description <<-DESC.gsub(/^  /, "")
+Rake::Task["test"].clear_comments if Rake::Task["test"].respond_to?(:clear_comments)
+Rake::Task["test"].add_description <<-DESC.gsub(/^  /, "")
   Run preflight checks, then all tests (default task).
 
   Set COVERAGE_REPORT=1 to produce an HTML-formatted code-coverage
@@ -66,7 +60,7 @@ task :clean do
 end
 
 if RUBY_VERSION >= "1.8.7"
-  rdoc_options = %w(--show-hash --charset utf-8 --github)
+  rdoc_options = %w(--show-hash --charset=UTF-8)
   begin
     require 'sdoc'
     rdoc_options += %w(--format sdoc)
